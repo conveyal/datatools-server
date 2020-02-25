@@ -148,6 +148,12 @@ public class MergeFeedsJobTest extends UnitTest {
             mergedVersion.feedLoadResult.calendarDates.rowCount,
             bartVersion1.feedLoadResult.calendarDates.rowCount + calTrainVersion.feedLoadResult.calendarDates.rowCount + napaVersion.feedLoadResult.calendarDates.rowCount
         );
+        // Verify that the one stop with a parent_station value (an example of a self-referential field) is updated to
+        // the feed-scoped value.
+        assertThatSqlCountQueryYieldsExpectedCount(
+            String.format("select count(*) from %s.stops where parent_station = 'Napa1:104'", mergedVersion.namespace),
+            1
+        );
         // Ensure there are no referential integrity errors, duplicate ID, or wrong number of
         // fields errors.
         assertThatFeedHasNoErrorsOfType(

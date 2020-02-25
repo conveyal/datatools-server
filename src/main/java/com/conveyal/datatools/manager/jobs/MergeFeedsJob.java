@@ -530,7 +530,7 @@ public class MergeFeedsJob extends MonitorableJob {
                         }
                         // Determine if field is a GTFS identifier.
                         boolean isKeyField =
-                            field.isForeignReference() || keyField.equals(field.name);
+                            field.isReference() || keyField.equals(field.name);
                         if (this.mergeType.equals(REGIONAL) && isKeyField && !val.isEmpty()) {
                             // For regional merge, if field is a GTFS identifier (e.g., route_id,
                             // stop_id, etc.), add scoped prefix.
@@ -801,7 +801,7 @@ public class MergeFeedsJob extends MonitorableJob {
                             }
                         }
 
-                        if (field.isForeignReference()) {
+                        if (field.isReference()) {
                             String key = getTableScopedValue(field.referenceTable, idScope, val);
                             // If the current foreign ref points to another record that has been skipped, skip this
                             // record and add its primary key to the list of skipped IDs (so that other references can

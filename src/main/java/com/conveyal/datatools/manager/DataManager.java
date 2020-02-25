@@ -175,7 +175,7 @@ public class DataManager {
         return null;
     }
 
-    /*
+    /**
      * Load some properties files to obtain information about this project.
      * This method reads in two files:
      * - src/main/resources/.properties
