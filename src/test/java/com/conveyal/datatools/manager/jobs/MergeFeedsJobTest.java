@@ -38,8 +38,12 @@ public class MergeFeedsJobTest extends UnitTest {
     private static FeedVersion bartVersion1;
     private static FeedVersion bartVersion2;
     private static FeedVersion calTrainVersion;
+    private static FeedVersion bartVersionOldLite;
+    private static FeedVersion bartVersionNewLite;
+    private static FeedVersion calTrainVersionLite;
     private static Project project;
     private static FeedVersion napaVersion;
+    private static FeedVersion napaVersionLite;
     private static FeedVersion bothCalendarFilesVersion;
     private static FeedVersion bothCalendarFilesVersion2;
     private static FeedVersion bothCalendarFilesVersion3;
@@ -64,16 +68,20 @@ public class MergeFeedsJobTest extends UnitTest {
         Persistence.feedSources.create(bart);
         bartVersion1 = createFeedVersionFromGtfsZip(bart, "bart_old.zip");
         bartVersion2 = createFeedVersionFromGtfsZip(bart, "bart_new.zip");
+        bartVersionOldLite = createFeedVersionFromGtfsZip(bart, "bart_old_lite.zip");
+        bartVersionNewLite = createFeedVersionFromGtfsZip(bart, "bart_new_lite.zip");
 
         // Caltrain
         FeedSource caltrain = new FeedSource("Caltrain", project.id, MANUALLY_UPLOADED);
         Persistence.feedSources.create(caltrain);
         calTrainVersion = createFeedVersionFromGtfsZip(caltrain, "caltrain_gtfs.zip");
+        calTrainVersionLite = createFeedVersionFromGtfsZip(caltrain, "caltrain_gtfs_lite.zip");
 
         // Napa
         FeedSource napa = new FeedSource("Napa", project.id, MANUALLY_UPLOADED);
         Persistence.feedSources.create(napa);
         napaVersion = createFeedVersionFromGtfsZip(napa, "napa-no-agency-id.zip");
+        napaVersionLite = createFeedVersionFromGtfsZip(napa, "napa-no-agency-id-lite.zip");
 
         // Fake agencies (for testing calendar service_id merges with MTC strategy).
         FeedSource fakeAgency = new FeedSource("Fake Agency", project.id, MANUALLY_UPLOADED);
@@ -107,45 +115,45 @@ public class MergeFeedsJobTest extends UnitTest {
     public void canMergeRegional() throws SQLException {
         // Set up list of feed versions to merge.
         Set<FeedVersion> versions = new HashSet<>();
-        versions.add(bartVersion1);
-        versions.add(calTrainVersion);
-        versions.add(napaVersion);
+        versions.add(bartVersionOldLite);
+        versions.add(calTrainVersionLite);
+        versions.add(napaVersionLite);
         FeedVersion mergedVersion = regionallyMergeVersions(versions);
 
         // Ensure the feed has the row counts we expect.
         assertEquals(
-            bartVersion1.feedLoadResult.trips.rowCount + calTrainVersion.feedLoadResult.trips.rowCount + napaVersion.feedLoadResult.trips.rowCount,
+            bartVersionOldLite.feedLoadResult.trips.rowCount + calTrainVersionLite.feedLoadResult.trips.rowCount + napaVersionLite.feedLoadResult.trips.rowCount,
             mergedVersion.feedLoadResult.trips.rowCount,
             "trips count for merged feed should equal sum of trips for versions merged."
         );
         assertEquals(
-            bartVersion1.feedLoadResult.routes.rowCount + calTrainVersion.feedLoadResult.routes.rowCount + napaVersion.feedLoadResult.routes.rowCount,
+            bartVersionOldLite.feedLoadResult.routes.rowCount + calTrainVersionLite.feedLoadResult.routes.rowCount + napaVersionLite.feedLoadResult.routes.rowCount,
             mergedVersion.feedLoadResult.routes.rowCount,
             "routes count for merged feed should equal sum of routes for versions merged."
             );
         assertEquals(
             mergedVersion.feedLoadResult.stops.rowCount,
-            bartVersion1.feedLoadResult.stops.rowCount + calTrainVersion.feedLoadResult.stops.rowCount + napaVersion.feedLoadResult.stops.rowCount,
+            bartVersionOldLite.feedLoadResult.stops.rowCount + calTrainVersionLite.feedLoadResult.stops.rowCount + napaVersionLite.feedLoadResult.stops.rowCount,
             "stops count for merged feed should equal sum of stops for versions merged."
         );
         assertEquals(
             mergedVersion.feedLoadResult.agency.rowCount,
-            bartVersion1.feedLoadResult.agency.rowCount + calTrainVersion.feedLoadResult.agency.rowCount + napaVersion.feedLoadResult.agency.rowCount,
+            bartVersionOldLite.feedLoadResult.agency.rowCount + calTrainVersionLite.feedLoadResult.agency.rowCount + napaVersionLite.feedLoadResult.agency.rowCount,
             "agency count for merged feed should equal sum of agency for versions merged."
         );
         assertEquals(
             mergedVersion.feedLoadResult.stopTimes.rowCount,
-            bartVersion1.feedLoadResult.stopTimes.rowCount + calTrainVersion.feedLoadResult.stopTimes.rowCount + napaVersion.feedLoadResult.stopTimes.rowCount,
+            bartVersionOldLite.feedLoadResult.stopTimes.rowCount + calTrainVersionLite.feedLoadResult.stopTimes.rowCount + napaVersionLite.feedLoadResult.stopTimes.rowCount,
             "stopTimes count for merged feed should equal sum of stopTimes for versions merged."
         );
         assertEquals(
             mergedVersion.feedLoadResult.calendar.rowCount,
-            bartVersion1.feedLoadResult.calendar.rowCount + calTrainVersion.feedLoadResult.calendar.rowCount + napaVersion.feedLoadResult.calendar.rowCount,
+            bartVersionOldLite.feedLoadResult.calendar.rowCount + calTrainVersionLite.feedLoadResult.calendar.rowCount + napaVersionLite.feedLoadResult.calendar.rowCount,
             "calendar count for merged feed should equal sum of calendar for versions merged."
         );
         assertEquals(
             mergedVersion.feedLoadResult.calendarDates.rowCount,
-            bartVersion1.feedLoadResult.calendarDates.rowCount + calTrainVersion.feedLoadResult.calendarDates.rowCount + napaVersion.feedLoadResult.calendarDates.rowCount,
+            bartVersionOldLite.feedLoadResult.calendarDates.rowCount + calTrainVersionLite.feedLoadResult.calendarDates.rowCount + napaVersionLite.feedLoadResult.calendarDates.rowCount,
             "calendarDates count for merged feed should equal sum of calendarDates for versions merged."
         );
         // Ensure there are no referential integrity errors, duplicate ID, or wrong number of
@@ -274,8 +282,8 @@ public class MergeFeedsJobTest extends UnitTest {
     @Test
     public void canMergeBARTFeeds() throws SQLException {
         Set<FeedVersion> versions = new HashSet<>();
-        versions.add(bartVersion1);
-        versions.add(bartVersion2);
+        versions.add(bartVersionOldLite);
+        versions.add(bartVersionNewLite);
         MergeFeedsJob mergeFeedsJob = new MergeFeedsJob(user, versions, "merged_output", MergeFeedsType.SERVICE_PERIOD);
         // This time, turn off the failOnDuplicateTripId flag.
         mergeFeedsJob.failOnDuplicateTripId = false;
@@ -295,24 +303,24 @@ public class MergeFeedsJobTest extends UnitTest {
         );
         // Check GTFS file line numbers.
         assertEquals(
-            4552, // Magic number represents the number of trips in the merged BART feed.
+            3, // Magic number represents the number of trips in the merged BART feed.
             mergeFeedsJob.mergedVersion.feedLoadResult.trips.rowCount,
             "Merged feed trip count should equal expected value."
         );
         assertEquals(
-            9, // Magic number represents the number of routes in the merged BART feed.
+            1, // Magic number represents the number of routes in the merged BART feed.
             mergeFeedsJob.mergedVersion.feedLoadResult.routes.rowCount,
             "Merged feed route count should equal expected value."
         );
         assertEquals(
             // During merge, if identical shape_id is found in both feeds, active feed shape_id should be feed-scoped.
-            bartVersion1.feedLoadResult.shapes.rowCount + bartVersion2.feedLoadResult.shapes.rowCount,
+            bartVersionOldLite.feedLoadResult.shapes.rowCount + bartVersionNewLite.feedLoadResult.shapes.rowCount,
             mergeFeedsJob.mergedVersion.feedLoadResult.shapes.rowCount,
             "Merged feed shapes count should equal expected value."
         );
         // Expect that two calendar dates are excluded from the past feed (because they occur after the first date of
         // the future feed) .
-        int expectedCalendarDatesCount = bartVersion1.feedLoadResult.calendarDates.rowCount + bartVersion2.feedLoadResult.calendarDates.rowCount - 2;
+        int expectedCalendarDatesCount = bartVersionOldLite.feedLoadResult.calendarDates.rowCount + bartVersionNewLite.feedLoadResult.calendarDates.rowCount - 2;
         assertEquals(
             // During merge, if identical shape_id is found in both feeds, active feed shape_id should be feed-scoped.
             expectedCalendarDatesCount,

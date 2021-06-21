@@ -2,22 +2,31 @@ package com.conveyal.datatools.manager.utils.json;
 
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Map;
 
-import com.conveyal.datatools.editor.models.transit.GtfsRouteType;
-import com.conveyal.datatools.editor.utils.JacksonSerializers;
+import com.conveyal.gtfs.util.json.JacksonSerializers;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.deser.std.StdScalarDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
+import com.fasterxml.jackson.databind.ser.std.StdScalarSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Helper methods for writing REST API routines
@@ -25,6 +34,7 @@ import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
  *
  */
 public class JsonManager<T> {
+    private static final Logger LOG = LoggerFactory.getLogger(JsonManager.class);
     private ObjectWriter ow;
     private ObjectMapper om;
 
@@ -43,11 +53,8 @@ public class JsonManager<T> {
         om.addMixIn(Rectangle2D.class, Rectangle2DMixIn.class);
         SimpleModule deser = new SimpleModule();
 
-        deser.addDeserializer(LocalDate.class, new JacksonSerializers.LocalDateDeserializer());
-        deser.addSerializer(LocalDate.class, new JacksonSerializers.LocalDateSerializer());
-
-        deser.addDeserializer(GtfsRouteType.class, new JacksonSerializers.GtfsRouteTypeDeserializer());
-        deser.addSerializer(GtfsRouteType.class, new JacksonSerializers.GtfsRouteTypeSerializer());
+        deser.addDeserializer(LocalDate.class, new LocalDateDeserializer());
+        deser.addSerializer(LocalDate.class, new LocalDateSerializer());
 
         deser.addDeserializer(Rectangle2D.class, new Rectangle2DDeserializer());
         om.registerModule(deser);
@@ -105,4 +112,48 @@ public class JsonManager<T> {
     public T read(JsonNode asJson) {
         return om.convertValue(asJson, theClass);
     }
+
+    /** serialize local dates as noon GMT epoch times */
+    public static class LocalDateSerializer extends StdScalarSerializer<LocalDate> {
+        private static final long serialVersionUID = 3153194744968260324L;
+
+        public LocalDateSerializer() {
+            super(LocalDate.class, false);
+        }
+
+        @Override
+        public void serialize(LocalDate ld, JsonGenerator jgen, SerializerProvider arg2) throws IOException {
+            // YYYYMMDD
+            jgen.writeString(ld.format(DateTimeFormatter.BASIC_ISO_DATE));
+        }
+    }
+
+    /** deserialize local dates from GMT epochs */
+    public static class LocalDateDeserializer extends StdScalarDeserializer<LocalDate> {
+        private static final long serialVersionUID = -1855560624079270379L;
+
+        public LocalDateDeserializer () {
+            super(LocalDate.class);
+        }
+
+        @Override
+        public LocalDate deserialize(JsonParser jp, DeserializationContext arg1) throws IOException {
+            String dateText = jp.getText();
+            try {
+                return LocalDate.parse(dateText, DateTimeFormatter.BASIC_ISO_DATE);
+            } catch (Exception jsonException) {
+                // This is here to catch any loads of database dumps that happen to have the old java.util.Date
+                // field type in validationResult.  God help us.
+                LOG.warn("Error parsing date value: `{}`, trying legacy java.util.Date date format", dateText);
+                try {
+                    return Instant.ofEpochMilli(jp.getValueAsLong()).atZone(ZoneOffset.UTC).toLocalDate();
+                } catch (Exception e) {
+                    LOG.warn("Error parsing date value: `{}`", dateText);
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        }
+    }
+
 }

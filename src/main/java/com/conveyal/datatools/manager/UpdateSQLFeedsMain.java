@@ -23,8 +23,8 @@ import static com.conveyal.datatools.manager.DataManager.registerRoutes;
  * Argument descriptions:
  * 1. path to env.yml
  * 2. path to server.yml
- * 3. string update sql statement to apply to optionally filtered feeds (this should contain a {@link java.util.Formatter}
- *    compatible string substitution for the namespace argument).
+ * 3. string update sql statement to apply to optionally filtered feeds (this should contain a namespace wildcard
+ *    {@link UpdateSQLFeedsMain#NAMESPACE_WILDCARD} string for the namespace argument substitution).
  * 4. string field to filter feeds on
  * 5. string value (corresponding to field in arg 3) to filter feeds on (omit to use NULL as value or comma separate to
  *    include multiple values)
@@ -38,6 +38,7 @@ import static com.conveyal.datatools.manager.DataManager.registerRoutes;
  * "/path/to/config/env.yml" "/path/to/config/server.yml" "alter table %s.routes add column some_column_name int" filename /tmp/gtfs.zip
  */
 public class UpdateSQLFeedsMain {
+    public static final String NAMESPACE_WILDCARD = "#ns#";
 
     public static void main(String[] args) throws IOException, SQLException {
         // First, set up application.
@@ -77,7 +78,7 @@ public class UpdateSQLFeedsMain {
             // Add where in clause if field is not null
             // NOTE: if value is null, where clause will be executed accordingly (i.e., WHERE field = null)
             String operator = values == null
-                ? "IS NULL"
+                ? ""
                 : String.format("in (%s)", String.join(", ", Collections.nCopies(values.length, "?")));
             selectFeedsSql = String.format("%s where %s %s", selectFeedsSql, field, operator);
         }
@@ -103,7 +104,7 @@ public class UpdateSQLFeedsMain {
         while (resultSet.next()) {
             // Use the string found in the result as the table prefix for the following update query.
             String namespace = resultSet.getString(1);
-            String updateTableSql = String.format(updateSql, namespace);
+            String updateTableSql = updateSql.replaceAll(NAMESPACE_WILDCARD, namespace);
             Statement statement = connection.createStatement();
             try {
                 System.out.println(updateTableSql);

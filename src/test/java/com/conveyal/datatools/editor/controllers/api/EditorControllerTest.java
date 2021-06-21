@@ -14,14 +14,19 @@ import com.conveyal.datatools.manager.persistence.Persistence;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import spark.utils.IOUtils;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.stream.Stream;
 
 import static com.conveyal.datatools.TestUtils.createFeedVersionFromGtfsZip;
 import static com.conveyal.datatools.manager.auth.Auth0Users.USERS_API_PATH;
@@ -34,6 +39,7 @@ import static org.hamcrest.Matchers.is;
 public class EditorControllerTest extends UnitTest {
     private static final Logger LOG = LoggerFactory.getLogger(EditorControllerTest.class);
     private static Project project;
+    private static FeedSource feedSource;
     private static FeedVersion feedVersion;
     private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -51,7 +57,7 @@ public class EditorControllerTest extends UnitTest {
         project = new Project();
         project.name = String.format("Test %s", new Date().toString());
         Persistence.projects.create(project);
-        FeedSource feedSource = new FeedSource("BART");
+        feedSource = new FeedSource("BART");
         feedSource.projectId = project.id;
         Persistence.feedSources.create(feedSource);
         feedVersion = createFeedVersionFromGtfsZip(feedSource, "bart_old.zip");
@@ -64,26 +70,45 @@ public class EditorControllerTest extends UnitTest {
         LOG.info("{} setup completed in {} ms", EditorControllerTest.class.getSimpleName(), System.currentTimeMillis() - startTime);
     }
 
+    @AfterAll
+    public static void tearDown() {
+        project.delete();
+        feedSource.delete();
+    }
+
+    private static Stream<Arguments> createPatchTableTests() {
+        return Stream.of(
+            Arguments.of("route_short_name", "route", 6, "graphql/routes.txt", "routes"),
+            Arguments.of("organization_name", "attribution", 1, "graphql/attributions.txt", "attributions"),
+            Arguments.of("translation", "translation", 3, "graphql/translations.txt", "translations")
+        );
+    }
+
     /**
-     * Make sure the patch table endpoint can patch routes table.
+     * Confirm that the provided table endpoint can be patched.
      */
-    @Test
-    public void canPatchRoutes() throws IOException {
-        LOG.info("Making patch routes request");
-        ObjectNode jsonBody = mapper.createObjectNode();
-        String field = "route_short_name";
+    @ParameterizedTest
+    @MethodSource("createPatchTableTests")
+    public void canPatchTableTests(
+        String field,
+        String entity,
+        int expectedCount,
+        String graphQLQueryFile,
+        String table
+    ) throws IOException {
+
+        LOG.info("Making patch {} request", table);
         String value = "NEW";
+        ObjectNode jsonBody = mapper.createObjectNode();
         jsonBody.put(field, value);
-        int count = patchTableRequest("route", feedVersion.feedSourceId, null, jsonBody);
-        // Assert that all six routes contained within BART feed were modified.
-        assertThat(count, equalTo(6));
-        // Check GraphQL to verify that route_short_name has indeed been updated.
+        int count = patchTableRequest(entity, feedVersion.feedSourceId, null, jsonBody);
+        // Assert that the correct table within the BART feed was modified.
+        assertThat(count, equalTo(expectedCount));
         // Get fresh feed source so that editor namespace was updated after snapshot.
-        FeedSource feedSource = Persistence.feedSources.getById(feedVersion.feedSourceId);
-        JsonNode graphQL = graphqlQuery(feedSource.editorNamespace, "graphql/routes.txt");
-        // Every route should now have the short name defined in the patch JSON body above.
-        for (JsonNode route : graphQL.get("data").get("feed").get("routes")) {
-            assertThat(route.get(field).asText(), equalTo(value));
+        FeedSource freshFeedSource = Persistence.feedSources.getById(feedVersion.feedSourceId);
+        JsonNode graphQL = graphqlQuery(freshFeedSource.editorNamespace, graphQLQueryFile);
+        for (JsonNode node : graphQL.get("data").get("feed").get(table)) {
+            assertThat(node.get(field).asText(), equalTo(value));
         }
     }
 
@@ -106,8 +131,8 @@ public class EditorControllerTest extends UnitTest {
         assertThat(count, equalTo(34));
         // Check GraphQL to verify that stop_desc has indeed been updated.
         // Get fresh feed source so that editor namespace was updated after snapshot.
-        FeedSource feedSource = Persistence.feedSources.getById(feedVersion.feedSourceId);
-        JsonNode graphQL = graphqlQuery(feedSource.editorNamespace, "graphql/stops.txt");
+        FeedSource freshFeedSource = Persistence.feedSources.getById(feedVersion.feedSourceId);
+        JsonNode graphQL = graphqlQuery(freshFeedSource.editorNamespace, "graphql/stops.txt");
         // Every stop meeting the stop_lon condition should now have the desc defined in the patch JSON body above.
         for (JsonNode stop : graphQL.get("data").get("feed").get("stops")) {
             double filteredValue = stop.get(queryField).asDouble();
