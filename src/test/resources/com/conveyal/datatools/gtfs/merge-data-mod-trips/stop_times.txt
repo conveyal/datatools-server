@@ -1,0 +1,9 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled,timepoint
+trip3,07:00:00,07:00:00,4u6g,1,,0,0,0.0000000,
+trip3,07:01:00,07:01:00,johv,2,,0,0,341.4491961,
+only-calendar-trip1,08:00:00,08:00:00,4u6g,1,,0,0,0.0000000,
+only-calendar-trip1,08:01:00,08:01:00,johv,2,,0,0,341.4491961,
+only-calendar-trip2,07:00:00,07:00:00,johv,1,,0,0,0.0000000,
+only-calendar-trip2,07:01:00,07:01:00,4u6g,2,,0,0,341.4491961,
+only-calendar-trip999,07:00:00,07:00:00,johv,1,,0,0,0.0000000,
+only-calendar-trip999,07:01:00,07:01:00,4u6g,2,,0,0,341.4491961,

@@ -1,0 +1,3 @@
+stop_id,accessibility_id,cardinal_direction,relative_position,stop_city
+4u6g,0,SE,FS,Scotts Valley
+johv,0,SE,FS,Scotts Valley

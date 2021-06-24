@@ -1,0 +1,3 @@
+route_id,trip_id,trip_headsign,trip_short_name,direction_id,block_id,shape_id,bikes_allowed,wheelchair_accessible,service_id
+1,only-calendar-trip1,,,0,,,0,0,common_id
+2,only-calendar-trip2,,,0,,,0,0,common_id

@@ -1,0 +1,3 @@
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+common_id,1,1,1,1,1,1,1,20170918,20170920
+only_calendar_id,1,1,1,1,1,1,1,20170921,20170922

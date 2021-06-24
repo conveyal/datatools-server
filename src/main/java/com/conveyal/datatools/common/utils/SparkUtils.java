@@ -3,6 +3,7 @@ package com.conveyal.datatools.common.utils;
 import com.bugsnag.Bugsnag;
 import com.bugsnag.Report;
 import com.conveyal.datatools.manager.auth.Auth0UserProfile;
+import com.conveyal.datatools.manager.utils.ErrorUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -127,17 +128,8 @@ public class SparkUtils {
 
         if (statusCode >= 500) {
             LOG.error(message);
-
-            // create report to notify bugsnag if configured
-            Bugsnag bugsnag = getBugsnag();
-            if (bugsnag != null && e != null) {
-                // create report to send to bugsnag
-                Report report = bugsnag.buildReport(e);
-                Auth0UserProfile userProfile = request != null ? request.attribute("user") : null;
-                String userEmail = userProfile != null ? userProfile.getEmail() : "no-auth";
-                report.setUserEmail(userEmail);
-                bugsnag.notify(report);
-            }
+            Auth0UserProfile userProfile = request != null ? request.attribute("user") : null;
+            ErrorUtils.reportToBugsnag(e, userProfile);
         }
 
         JsonNode json = getObjectNode(message, statusCode, e);

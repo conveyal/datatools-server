@@ -15,9 +15,9 @@ public class MergeFeedsResult implements Serializable {
 
     /** Number of feeds merged */
     public int feedCount;
-    public int errorCount;
     /** Type of merge operation performed */
     public MergeFeedsType type;
+    public MergeStrategy mergeStrategy = MergeStrategy.DEFAULT;
     /** Contains a set of strings for which there were error-causing duplicate values */
     public Set<String> idConflicts = new HashSet<>();
     /** Contains the set of IDs for records that were excluded in the merged feed */
@@ -35,8 +35,10 @@ public class MergeFeedsResult implements Serializable {
     public int recordsSkipCount;
     public Date startTime;
     public boolean failed;
+    public int errorCount;
     /** Set of reasons explaining why merge operation failed */
     public Set<String> failureReasons = new HashSet<>();
+    public Set<String> tripIdsToCheck = new HashSet<>();
 
     public MergeFeedsResult (MergeFeedsType type) {
         this.type = type;
