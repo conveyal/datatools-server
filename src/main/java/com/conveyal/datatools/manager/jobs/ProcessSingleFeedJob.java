@@ -18,13 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
-
-import static com.conveyal.datatools.manager.models.FeedRetrievalMethod.VERSION_CLONE;
 
 /**
  * Process/validate a single GTFS feed. This job is called once a GTFS file had been uploaded or fetched and is ready to
@@ -38,10 +33,6 @@ public class ProcessSingleFeedJob extends FeedVersionJob {
     private final FeedVersion feedVersion;
     private final boolean isNewVersion;
     private static final Logger LOG = LoggerFactory.getLogger(ProcessSingleFeedJob.class);
-    /**
-     * Following the process feed job, whether the feed version should be cloned.
-     */
-    private final boolean shouldClone;
     private final FeedSource feedSource;
 
     /**
@@ -52,11 +43,6 @@ public class ProcessSingleFeedJob extends FeedVersionJob {
         this.feedVersion = feedVersion;
         this.feedSource = feedVersion.parentFeedSource();
         this.isNewVersion = isNewVersion;
-        // If there are any feed transformations that apply to the VERSION_CLONE retrieval method, we need to add a
-        // stage to jobFinished (perhaps) to clone the feed version (as long as this feed version has not already been
-        // cloned). Once that feed version is processed, the appropriate transformations will apply themselves.
-        shouldClone = !feedVersion.retrievalMethod.equals(VERSION_CLONE) &&
-            feedSource.hasRulesForRetrievalMethod(VERSION_CLONE);
         status.update("Waiting...", 0);
         status.uploading = true;
     }
@@ -147,49 +133,22 @@ public class ProcessSingleFeedJob extends FeedVersionJob {
             }
         }
 
-        if (shouldClone) {
-            // If it was determined that the final version should be cloned (because of feed transformations that
-            // must operate on a cloned version), handle that here. The cloned version will then apply the
-            // transformations in its process feed job.
-            try {
-                // Create a new version for the clone.
-                FeedVersion newFeedVersion = new FeedVersion(feedSource, VERSION_CLONE);
-                LOG.info(
-                    "Cloning version ({} to {}) due to presence of transform rules applying to VERSION_CLONE method.",
-                    feedVersion.id,
-                    newFeedVersion.id
-                );
-                // Get new path for GTFS file.
-                File newGtfsFile = FeedVersion.feedStore.getFeedFile(newFeedVersion.id);
-                // Copy previous version to the new GTFS path.
-                Files.copy(feedVersion.retrieveGtfsFile().toPath(), newGtfsFile.toPath());
-                // Handle hashing file.
-                newFeedVersion.assignGtfsFileAttributes(newGtfsFile);
-                // Kick off version clone job in same thread. Transformations that apply to VERSION_CLONE will
-                // happen in this job.
-                ProcessSingleFeedJob versionCloneJob = new ProcessSingleFeedJob(newFeedVersion, owner, true);
-                addNextJob(versionCloneJob);
-            } catch (IOException e) {
-                status.fail("Could not clone version.", e);
-            }
-        } else {
-            // If deployment module is enabled, the feed source is deployable and the project can be auto deployed at
-            // this stage, create an auto deploy job. Note: other checks occur within job to ensure appropriate
-            // conditions are met.
-            Set<AutoDeployType> projectAutoDeployTypes = feedSource.retrieveProject().autoDeployTypes;
-            if (
-                DataManager.isModuleEnabled("deployment") &&
-                    feedSource.deployable &&
-                    (
-                        projectAutoDeployTypes.contains(AutoDeployType.ON_PROCESS_FEED) ||
-                            (
-                                feedVersion.retrievalMethod == FeedRetrievalMethod.FETCHED_AUTOMATICALLY &&
-                                    projectAutoDeployTypes.contains(AutoDeployType.ON_FEED_FETCH)
-                            )
-                    )
-            ) {
-                addNextJob(new AutoDeployJob(feedSource.retrieveProject(), owner));
-            }
+        // If deployment module is enabled, the feed source is deployable and the project can be auto deployed at
+        // this stage, create an auto deploy job. Note: other checks occur within job to ensure appropriate
+        // conditions are met.
+        Set<AutoDeployType> projectAutoDeployTypes = feedSource.retrieveProject().autoDeployTypes;
+        if (
+            DataManager.isModuleEnabled("deployment") &&
+                feedSource.deployable &&
+                (
+                    projectAutoDeployTypes.contains(AutoDeployType.ON_PROCESS_FEED) ||
+                        (
+                            feedVersion.retrievalMethod == FeedRetrievalMethod.FETCHED_AUTOMATICALLY &&
+                                projectAutoDeployTypes.contains(AutoDeployType.ON_FEED_FETCH)
+                        )
+                )
+        ) {
+            addNextJob(new AutoDeployJob(feedSource.retrieveProject(), owner));
         }
     }
 
