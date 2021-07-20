@@ -7,11 +7,7 @@ import com.conveyal.datatools.manager.auth.Actions;
 import com.conveyal.datatools.manager.extensions.ExternalFeedResource;
 import com.conveyal.datatools.manager.jobs.FetchSingleFeedJob;
 import com.conveyal.datatools.manager.jobs.NotifyUsersForSubscriptionJob;
-import com.conveyal.datatools.manager.models.ExternalFeedSourceProperty;
-import com.conveyal.datatools.manager.models.FeedRetrievalMethod;
-import com.conveyal.datatools.manager.models.FeedSource;
-import com.conveyal.datatools.manager.models.JsonViews;
-import com.conveyal.datatools.manager.models.Project;
+import com.conveyal.datatools.manager.models.*;
 import com.conveyal.datatools.manager.models.transform.NormalizeFieldTransformation;
 import com.conveyal.datatools.manager.models.transform.Substitution;
 import com.conveyal.datatools.manager.persistence.Persistence;
@@ -78,6 +74,7 @@ public class FeedSourceController {
         }
         Collection<FeedSource> projectFeedSources = project.retrieveProjectFeedSources();
         for (FeedSource source: projectFeedSources) {
+            source = checkFeedSourcePermissions(req, source, Actions.VIEW);
             String orgId = source.organizationId();
             // If user can view or manage feed, add to list of feeds to return. NOTE: By default most users with access
             // to a project should be able to view all feed sources. Custom privileges would need to be provided to
@@ -140,6 +137,11 @@ public class FeedSourceController {
         }
         if (feedSource.retrieveProject() == null) {
             validationIssues.add("Valid project ID must be provided.");
+        }
+        for (String labelId: feedSource.labels) {
+            if (Persistence.labels.getById(labelId) == null) {
+                validationIssues.add("All labels assigned to feed must exist.");
+            }
         }
         // Collect all retrieval methods found in transform rules into a list.
         List<FeedRetrievalMethod> retrievalMethods = feedSource.transformRules.stream()
@@ -299,6 +301,7 @@ public class FeedSourceController {
         if (id == null) {
             logMessageAndHalt(req, 400, "Please specify id param");
         }
+
         return checkFeedSourcePermissions(req, Persistence.feedSources.getById(id), action);
     }
 
@@ -311,9 +314,11 @@ public class FeedSourceController {
         }
         String orgId = feedSource.organizationId();
         boolean authorized;
+        boolean isAdmin = userProfile.canAdministerProject(feedSource.id, orgId);
+
         switch (action) {
             case CREATE:
-                authorized = userProfile.canAdministerProject(feedSource.projectId, orgId);
+                authorized = isAdmin;
                 break;
             case MANAGE:
                 authorized = userProfile.canManageFeed(orgId, feedSource.projectId, feedSource.id);
@@ -332,9 +337,21 @@ public class FeedSourceController {
             // Throw halt if user not authorized.
             logMessageAndHalt(req, 403, "User not authorized to perform action on feed source");
         }
+
+        // Remove labels user is not allowed to see if user is not admin
+        if (!isAdmin) {
+            feedSource.labels = feedSource.labels.stream()
+                    // Need to resolve label IDs to labels, then back
+                    .map(labelId -> Persistence.labels.getById(labelId))
+                    .filter(label -> !label.adminOnly)
+                    .map(label -> label.id)
+                    .collect(Collectors.toList());
+        }
+
         // If we make it here, user has permission and the requested feed source is valid.
         return feedSource;
     }
+
 
     // FIXME: use generic API controller and return JSON documents via BSON/Mongo
     public static void register (String apiPrefix) {

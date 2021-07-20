@@ -17,16 +17,15 @@ import com.conveyal.datatools.manager.jobs.ProcessSingleFeedJob;
 import com.conveyal.datatools.manager.models.transform.FeedTransformRules;
 import com.conveyal.datatools.manager.models.transform.FeedTransformation;
 import com.conveyal.datatools.manager.persistence.Persistence;
+import com.conveyal.datatools.manager.serializers.LabelSerializer;
 import com.conveyal.datatools.manager.utils.JobUtils;
 import com.conveyal.gtfs.GTFS;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonView;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.model.Sorts;
 import org.bson.codecs.pojo.annotations.BsonIgnore;
+import org.bson.codecs.pojo.annotations.BsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -143,6 +142,11 @@ public class FeedSource extends Model implements Cloneable {
      * This is the String-formatted snapshot ID, which is the base64-encoded ID and the version number.
      */
     public String snapshotVersion;
+
+    // Using a custom serializer, the input can be an ID of a label, while the output will be the
+    // entire label object. This also allows storing labels as IDs.
+    @JsonSerialize(using = LabelSerializer.class)
+    public List<String> labels = new ArrayList<>();
 
     /**
      * The SQL namespace for the most recently verified published {@link FeedVersion}.

@@ -4,10 +4,7 @@ import com.conveyal.datatools.DatatoolsTest;
 import com.conveyal.datatools.TestUtils;
 import com.conveyal.datatools.common.utils.Scheduler;
 import com.conveyal.datatools.manager.auth.Auth0Connection;
-import com.conveyal.datatools.manager.models.FeedRetrievalMethod;
-import com.conveyal.datatools.manager.models.FeedSource;
-import com.conveyal.datatools.manager.models.FetchFrequency;
-import com.conveyal.datatools.manager.models.Project;
+import com.conveyal.datatools.manager.models.*;
 import com.conveyal.datatools.manager.persistence.Persistence;
 import com.conveyal.datatools.manager.utils.HttpUtils;
 import com.conveyal.datatools.manager.utils.json.JsonUtil;
@@ -18,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 
 import static org.eclipse.jetty.http.HttpStatus.OK_200;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +25,8 @@ public class FeedSourceControllerTest extends DatatoolsTest {
     private static Project project = null;
     private static FeedSource feedSourceWithUrl = null;
     private static FeedSource feedSourceWithNoUrl = null;
+    private static Label publicLabel = null;
+    private static Label adminOnlyLabel = null;
 
     @BeforeAll
     public static void setUp() throws IOException {
@@ -38,6 +38,10 @@ public class FeedSourceControllerTest extends DatatoolsTest {
         Persistence.projects.create(project);
         feedSourceWithUrl = createFeedSource("FeedSourceOne", new URL("http://www.feedsource.com"));
         feedSourceWithNoUrl = createFeedSource("FeedSourceTwo", null);
+
+        adminOnlyLabel = createLabel("Admin Only Label");
+        adminOnlyLabel.adminOnly = true;
+        publicLabel = createLabel("first");
     }
 
     @AfterAll
@@ -51,6 +55,12 @@ public class FeedSourceControllerTest extends DatatoolsTest {
         }
         if (feedSourceWithNoUrl != null) {
             Persistence.feedSources.removeById(feedSourceWithNoUrl.id);
+        }
+        if (publicLabel != null) {
+            Persistence.labels.removeById(publicLabel.id);
+        }
+        if (adminOnlyLabel != null) {
+            Persistence.labels.removeById(adminOnlyLabel.id);
         }
     }
 
@@ -92,6 +102,23 @@ public class FeedSourceControllerTest extends DatatoolsTest {
     }
 
     /**
+     * Create some labels, add them to the feed source make them admin only, and check that they don't appear if not an admin
+     */
+    @Test
+    public void createFeedSourceWithLabels() {
+        // Testing the following (important) components of label is as of yet not supported.
+        // Running the JsonUtil.toJson method uses Jackson's serializer which breaks the input.
+        // The only solution is to generate the JSON in another way...
+
+        // The feedSourceWithNoUrl will be serialized as a full Label
+
+        // Test that they're "rendered" as full label objects
+        // Test that an admin can see 2 of them
+
+        // Test that a non-admin can only one of them
+    }
+
+    /**
      * Create a feed source without defining the feed source url. Confirm that the feed source is not scheduled.
      */
     @Test
@@ -117,6 +144,14 @@ public class FeedSourceControllerTest extends DatatoolsTest {
         feedSource.retrievalMethod = FeedRetrievalMethod.FETCHED_AUTOMATICALLY;
         feedSource.url = url;
         return feedSource;
+    }
+
+    /**
+     * Helper method to create label
+     */
+    private static Label createLabel(String name) {
+        Label label = new Label(name, "A label used during testing", "#123", false, project.id);
+        return label;
     }
 
     /**

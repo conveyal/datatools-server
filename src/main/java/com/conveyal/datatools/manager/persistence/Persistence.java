@@ -4,16 +4,7 @@ import com.conveyal.datatools.manager.codec.FetchFrequencyCodec;
 import com.conveyal.datatools.manager.codec.IntArrayCodec;
 import com.conveyal.datatools.manager.codec.LocalDateCodec;
 import com.conveyal.datatools.manager.codec.URLCodec;
-import com.conveyal.datatools.manager.models.Deployment;
-import com.conveyal.datatools.manager.models.ExternalFeedSourceProperty;
-import com.conveyal.datatools.manager.models.FeedDownloadToken;
-import com.conveyal.datatools.manager.models.FeedSource;
-import com.conveyal.datatools.manager.models.FeedVersion;
-import com.conveyal.datatools.manager.models.Note;
-import com.conveyal.datatools.manager.models.Organization;
-import com.conveyal.datatools.manager.models.OtpServer;
-import com.conveyal.datatools.manager.models.Project;
-import com.conveyal.datatools.manager.models.Snapshot;
+import com.conveyal.datatools.manager.models.*;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
@@ -53,6 +44,7 @@ public class Persistence {
     public static TypedPersistence<OtpServer> servers;
     public static TypedPersistence<Snapshot> snapshots;
     public static TypedPersistence<FeedDownloadToken> tokens;
+    public static TypedPersistence<Label> labels;
 
     public static void initialize () {
 
@@ -115,6 +107,7 @@ public class Persistence {
         servers = new TypedPersistence(mongoDatabase, OtpServer.class);
         snapshots = new TypedPersistence(mongoDatabase, Snapshot.class);
         tokens = new TypedPersistence(mongoDatabase, FeedDownloadToken.class);
+        labels = new TypedPersistence(mongoDatabase, Label.class);
 
         // TODO: Set up indexes on feed versions by feedSourceId, version #? deployments, feedSources by projectId.
 //        deployments.getMongoCollection().createIndex(Indexes.descending("projectId"));

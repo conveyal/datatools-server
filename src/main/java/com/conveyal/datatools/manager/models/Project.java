@@ -105,6 +105,19 @@ public class Project extends Model {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get all the labels for this project.
+     */
+    public Collection<Label> retrieveProjectLabels() {
+        return Persistence.labels.getAll().stream()
+                .filter(label -> this.id.equals(label.projectId))
+                .collect(Collectors.toList());
+    }
+
+    // Keep an empty collection here which is filled dynamically later
+    public Collection<Label> labels;
+
+
     // Note: Previously a numberOfFeeds() dynamic Jackson JsonProperty was in place here. But when the number of projects
     // in the database grows large, the efficient calculation of this field does not scale.
 

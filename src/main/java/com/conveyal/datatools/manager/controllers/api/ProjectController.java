@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import spark.Request;
 import spark.Response;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -177,13 +178,14 @@ public class ProjectController {
         }
 
         boolean authorized;
+        boolean isAdmin = userProfile.canAdministerProject(project.id, project.organizationId);
         switch (action) {
             // TODO: limit create action to app/org admins? see code currently in createProject.
 //            case "create":
 //                authorized = userProfile.canAdministerOrganization(p.organizationId);
 //                break;
             case "manage":
-                authorized = userProfile.canAdministerProject(project.id, project.organizationId);
+                authorized = isAdmin;
                 break;
             case "view":
                 // request only authorized if not via public path and user can view
@@ -193,6 +195,13 @@ public class ProjectController {
                 authorized = false;
                 break;
         }
+
+        // Filter labels
+        project.labels = project.retrieveProjectLabels().stream() // Need to resolve label IDs to labels, then back
+                        // Admin gets all, otherwise only public labels
+                        .filter(label -> isAdmin || !label.adminOnly)
+                        .collect(Collectors.toList());
+
 
         // If the user is not logged in, include only public feed sources
         if (publicFilter){
